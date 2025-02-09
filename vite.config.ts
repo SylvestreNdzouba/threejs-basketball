@@ -13,7 +13,8 @@ export default defineConfig({
   plugins: [
     tsconfigPaths(),
     glsl({
-      compress: process.env.NODE_ENV === 'production'
+      compress: process.env.NODE_ENV === 'production',
+      root: '/node_modules'
     }),
     viteStaticCopy({
       targets: [
