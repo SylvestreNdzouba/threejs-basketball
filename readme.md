@@ -120,7 +120,7 @@ typescript. This is also true for
 built into vite:
 
 ```ts
-import modelSrc from '~/assets/models/model.glb'
+import modelSrc from '~~/assets/models/model.glb'
 
 console.log(modelSrc) // '/assets/model.1da8fbk.glb'
 ```
@@ -140,8 +140,8 @@ typescript and use the `#include` macro in your shaders:
 
 ```ts
 import { ShaderMaterial } from 'three'
-import vertexShader from './shaders/material.vert'
-import fragmentShader from './shaders/material.frag'
+import vertexShader from '~/shaders/material.vert'
+import fragmentShader from '~/shaders/material.frag'
 
 const material = new ShaderMaterial({
   vertexShader,
@@ -162,7 +162,7 @@ build output, they can be referenced from the `/libs` public path:
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
 import { KTX2Loader } from 'three/examples/jsm/loaders/KTX2Loader.js'
-import modelSrc from '~/assets/models/model.glb'
+import modelSrc from '~~/assets/models/model.glb'
 
 const dracoLoader = new DRACOLoader()
 dracoLoader.setDecoderPath('/libs/draco/')
