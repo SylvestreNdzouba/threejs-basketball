@@ -15,6 +15,7 @@
     "@tweakpane/core": "^2.0.5",
     "@tweakpane/plugin-essentials": "^0.2.1",
     "camera-controls": "^2.9.0",
+    "gsap": "^3.12.7",
     "postprocessing": "^6.36.6",
     "three": "^0.173.0",
     "three-custom-shader-material": "^6.3.0",
