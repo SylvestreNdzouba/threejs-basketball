@@ -4,7 +4,6 @@ import type { GUI } from "~/GUI";
 import { Composer } from "~/Composer";
 import { Controls } from "~/Controls";
 import { ExampleScene } from "~/scenes/ExampleScene";
-import { HoopScene } from "./scenes/HoopScene";
 
 export interface AppParameters {
   canvas?: HTMLCanvasElement | OffscreenCanvas;
