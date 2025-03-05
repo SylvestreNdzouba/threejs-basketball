@@ -56,7 +56,7 @@ jobs:
         run: npm install
 
       - name: Build app
-        run: pnpm build --base=${{ github.event.repository.name }}
+        run: npm run build --base=${{ github.event.repository.name }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
