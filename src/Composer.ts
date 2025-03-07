@@ -7,7 +7,6 @@ import {
   RenderPass,
   BloomEffect,
   VignetteEffect,
-  BlendFunction,
 } from "postprocessing";
 
 import type { Clock, Viewport, Lifecycle } from "~/core";
@@ -94,7 +93,6 @@ export class Composer extends EffectComposer implements Lifecycle {
 
   private setupEffectEvents(): void {
     document.addEventListener("hoopSceneFullyScrolled", ((event: Event) => {
-      console.log("PASSE ICI");
       const customEvent = event as CustomEvent;
       const isMaxScroll = customEvent.detail;
 

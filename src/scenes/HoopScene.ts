@@ -54,8 +54,6 @@ export class HoopScene extends Scene implements Lifecycle {
   }
 
   private setupWheelListener(): void {
-    console.log("Setting up wheel listener for HoopScene");
-
     // Sensibilité et limites
     const sensitivity = 0.0005;
 
@@ -72,30 +70,24 @@ export class HoopScene extends Scene implements Lifecycle {
       // Limiter les valeurs entre 0 et 1
       this.scrollProgress = Math.max(0, Math.min(this.scrollProgress, 1));
 
-      console.log("HoopScene wheel progress:", this.scrollProgress);
-
       if (this.scrollProgress >= 0.95 && !effectsActive) {
         effectsActive = true;
         const effectsEvent = new CustomEvent("hoopSceneFullyScrolled", {
           detail: true,
         });
         document.dispatchEvent(effectsEvent);
-        console.log("Activating max effects at scroll:", this.scrollProgress);
       } else if (this.scrollProgress < 0.9 && effectsActive) {
         effectsActive = false;
         const effectsEvent = new CustomEvent("hoopSceneFullyScrolled", {
           detail: false,
         });
         document.dispatchEvent(effectsEvent);
-        console.log("Deactivating effects at scroll:", this.scrollProgress);
       }
 
       // Utiliser le seuil de 0.7 comme dans ScrollTrigger
       if (this.scrollProgress > 0.7 && !this.isVisible) {
-        console.log("Showing HoopScene at progress:", this.scrollProgress);
         this.showScene();
       } else if (this.scrollProgress <= 0.7 && this.isVisible) {
-        console.log("Hiding HoopScene at progress:", this.scrollProgress);
         this.hideScene();
       }
 
@@ -127,27 +119,20 @@ export class HoopScene extends Scene implements Lifecycle {
 
         // Rotation et échelle
         this.model.rotation.y = Math.PI * 2 * modelProgress;
-        const scale = 0.5 + modelProgress * 0.5;
         this.model.scale.set(4.5, 4.5, 4.5);
       }
     });
 
     // Écouter un événement pour savoir quand activer la détection wheel
     document.addEventListener("ballAnimationComplete", () => {
-      console.log(
-        "Ball animation complete, enabling HoopScene wheel detection"
-      );
       this.wheelEnabled = true;
     });
 
     document.addEventListener("thirdSceneVisible", (event: Event) => {
       const customEvent = event as CustomEvent;
       this.arenaVisible = customEvent.detail;
-      console.log("Arena visibility changed:", this.arenaVisible);
 
       if (customEvent.detail) {
-        console.log("Arena scene visible, will adjust hoop position on scroll");
-
         // Masquer le texte "MAKE A SHOT" quand l'arène est visible
         if (this.textElement) {
           gsap.to(this.textElement, {
@@ -157,8 +142,6 @@ export class HoopScene extends Scene implements Lifecycle {
           });
         }
       } else {
-        console.log("Arena scene hidden, will reset hoop position on scroll");
-
         // Réafficher le texte quand l'arène n'est plus visible
         if (this.isVisible && this.textElement) {
           gsap.to(this.textElement, {
@@ -173,7 +156,7 @@ export class HoopScene extends Scene implements Lifecycle {
 
   private createTextElement(): void {
     this.textElement = document.createElement("h2");
-    this.textElement.textContent = "MAKE A SHOT";
+    this.textElement.textContent = "PLAY BASKET ON THE STREET";
     this.textElement.style.position = "absolute";
     this.textElement.style.right = "10%";
     this.textElement.style.top = "40%";
@@ -185,61 +168,9 @@ export class HoopScene extends Scene implements Lifecycle {
     document.body.appendChild(this.textElement);
   }
 
-  private setupScrollAnimation(): void {
-    console.log("Setting up scroll animation for HoopScene");
-    // Créer une timeline pour l'animation de cette scène
-    const tl = gsap.timeline({
-      scrollTrigger: {
-        id: "hoopSceneTrigger",
-        trigger: "#canvas-container",
-        start: "top top", // Commencer après avoir défilé 30% du conteneur
-        end: "+=200%", // Faire durer l'animation sur 2 fois la hauteur de l'écran
-        scrub: 1, // Animation fluide avec le défilement
-        onUpdate: (self) => {
-          // IMPORTANT: Uniformisez les seuils de déclenchement
-          console.log("ScrollTrigger progress:", self.progress);
-
-          // Si nous avons défilé suffisamment loin (70% de la progression)
-          if (self.progress > 0.7 && !this.isVisible) {
-            this.showScene();
-          }
-          // Si nous revenons en arrière en dessous du seuil
-          else if (self.progress <= 0.7 && this.isVisible) {
-            this.hideScene();
-          }
-
-          // IMPORTANT: Utilisez le même seuil pour l'animation du modèle
-          // que pour l'affichage de la scène
-          if (this.model && self.progress > 0.7) {
-            console.log("Animating model, progress:", self.progress);
-            // Progressivement amener le panier au centre de l'écran
-            const progress = Math.min(1, (self.progress - 0.7) / 0.3);
-
-            const rightOffset = 2;
-
-            // Position: démarrer hors-écran à droite, finir au centre
-            this.model.position.x =
-              10 * (1 - progress) + rightOffset * progress;
-            console.log("Model position X:", this.model.position.x);
-
-            // Rotation: faire un tour complet pendant l'animation
-            this.model.rotation.y =
-              Math.PI * 2 * progress + 0.0002 * this.clock.delta;
-
-            // Échelle: grandir progressivement
-            const scale = 0.5 + progress * 0.5;
-            this.model.scale.set(4.5, 4.5, 4.5);
-          }
-        },
-      },
-    });
-  }
-
   private showScene(): void {
     this.isVisible = true;
     this.visible = true; // Rendre visible
-
-    console.log("Showing HoopScene");
 
     // Animer l'apparition du texte
     gsap.to(this.textElement!, {
@@ -291,22 +222,6 @@ export class HoopScene extends Scene implements Lifecycle {
 
   public update(): void {
     this.light1.position.copy(this.camera.position);
-
-    /*let triggerExists = false;
-    ScrollTrigger.getAll().forEach((trigger) => {
-      if (trigger.vars.id === "hoopSceneTrigger") {
-        triggerExists = true;
-      }
-    });
-
-    // Si le ScrollTrigger a été supprimé, le recréer
-    if (!triggerExists) {
-      console.log("HoopScene ScrollTrigger was killed, recreating it");
-      this.setupScrollAnimation();
-    }*/
-
-    // La rotation est maintenant gérée dans la fonction de ScrollTrigger
-    // Nous n'avons pas besoin d'ajouter de rotation automatique supplémentaire ici
   }
 
   // Ajouter cette méthode à la classe HoopScene

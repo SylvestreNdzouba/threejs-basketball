@@ -148,7 +148,7 @@ export class ExampleScene extends Scene implements Lifecycle {
 
   private createHeadingElement(): void {
     this.textElement = document.createElement("h2");
-    this.textElement.textContent = "TAKE THE BALL";
+    this.textElement.textContent = "YOU JUST NEED A BALL";
     this.textElement.style.position = "absolute";
     this.textElement.style.left = "20%";
     this.textElement.style.top = "40%";
@@ -209,87 +209,7 @@ export class ExampleScene extends Scene implements Lifecycle {
         // Notifier que l'animation du ballon est terminée
         const event = new CustomEvent("ballAnimationComplete");
         document.dispatchEvent(event);
-        console.log("Ball animation complete event dispatched");
       });
-  }
-
-  private setupScrollAnimation(): void {
-    if (!this.model) return;
-
-    ScrollTrigger.getAll().forEach((trigger) => {
-      // Vérifier si ce trigger appartient à cette instance
-      // On peut utiliser une propriété data pour l'identifier
-      if (trigger.vars.id === "exampleSceneTrigger") {
-        trigger.kill();
-      }
-    });
-
-    // Créer une nouvelle animation contrôlée par le scroll
-    gsap.timeline({
-      scrollTrigger: {
-        id: "exempleSceneTrigger",
-        trigger: "#canvas-container",
-        start: "top top",
-        end: "bottom bottom",
-        scrub: 1,
-        onUpdate: (self) => {
-          if (this.model && this.isAnimationActive) {
-            // Gestion du retour en arrière
-            if (self.direction === -1 && self.progress < 0.1) {
-              // Si on scroll vers le haut et qu'on est presque en haut
-              // Remettre le ballon au centre avec sa taille d'origine
-              gsap.to(this.model.position, {
-                x: 0,
-                y: 0,
-                z: 0,
-                duration: 0.8,
-                ease: "power2.inOut",
-              });
-
-              gsap.to(this.model.scale, {
-                x: 3.5,
-                y: 3.5,
-                z: 3.5,
-                duration: 0.8,
-                ease: "power2.inOut",
-              });
-
-              // Faire disparaître le texte et le sol
-              gsap.to(this.textElement!, {
-                opacity: 0,
-                duration: 0.5,
-                ease: "power2.in",
-              });
-
-              if (this.floor) {
-                gsap.to(this.floor.material, {
-                  opacity: 0,
-                  duration: 0.5,
-                  ease: "power2.in",
-                  onComplete: () => {
-                    if (this.floor) {
-                      this.remove(this.floor);
-                      this.floor = undefined;
-                    }
-                  },
-                });
-              }
-
-              // Arrêter l'animation de rebond
-              this.isRebounding = false;
-
-              // Réactiver les interactions souris
-              document.body.style.pointerEvents = "auto";
-
-              // Permettre à nouveau la rotation automatique
-              if (self.progress < 0.05) {
-                this.isAnimationActive = false;
-              }
-            }
-          }
-        },
-      },
-    });
   }
 
   public async load(): Promise<void> {

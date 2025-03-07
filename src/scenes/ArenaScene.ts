@@ -5,8 +5,9 @@ import {
   Group,
   DirectionalLight,
   AmbientLight,
-  Vector3,
   MeshStandardMaterial,
+  Raycaster,
+  Vector2,
 } from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import gsap from "gsap";
@@ -32,13 +33,17 @@ export class ArenaScene extends Scene implements Lifecycle {
   private textElement?: HTMLElement;
   private scrollProgress: number = 0;
   private wheelEnabled: boolean = false;
-  private originalCameraPosition: Vector3;
-  public pivotGroup?: Group;
+  private basketballs: Mesh[] = [];
+  private raycaster: Raycaster;
+  private mouse: Vector2;
+  private hasTriggeredFinalScene: boolean = false;
+
   private originalCameraRotation = {
     x: 0,
     y: 0,
     z: 0,
   };
+  private boundClickHandler: (event: MouseEvent) => void;
 
   public constructor({ clock, camera, viewport }: ArenaSceneParameters) {
     super();
@@ -47,47 +52,51 @@ export class ArenaScene extends Scene implements Lifecycle {
     this.camera = camera;
     this.viewport = viewport;
 
-    // Sauvegarder la position et rotation originales de la caméra
-    this.originalCameraPosition = camera.position.clone();
+    this.raycaster = new Raycaster();
+    this.mouse = new Vector2();
+
     this.originalCameraRotation = {
       x: camera.rotation.x,
       y: camera.rotation.y,
       z: camera.rotation.z,
     };
 
-    this.pivotGroup = new Group();
-    this.add(this.pivotGroup);
-
-    // Créer des lumières pour bien éclairer l'arène
+    // Créer des lumières
     this.light1 = new DirectionalLight(0xffffff, 1);
     this.light1.position.set(0, 5, 0);
     this.add(this.light1);
 
-    // Ajouter une lumière ambiante pour mieux voir la scène intérieure
     const ambientLight = new AmbientLight(0xffffff, 0.8);
     this.add(ambientLight);
 
-    // Créer l'élément de texte pour cette scène
+    // Créer l'élément de texte
     this.createTextElement();
 
-    // Configuration de l'écouteur d'événements pour le défilement
+    // Configurer le wheel listener
     this.setupWheelListener();
 
+    // IMPORTANT: UN SEUL écouteur de clic
+    this.boundClickHandler = this.onMouseClick.bind(this);
+    window.addEventListener("click", this.boundClickHandler);
+
+    // Autres écouteurs d'événements
     document.addEventListener("checkArenaVisibility", (event) => {
       event.preventDefault();
       return this.isVisible;
     });
+
+    document.addEventListener("hideArenaScene", () => {
+      this.hideScene();
+    });
   }
 
   private setupWheelListener(): void {
-    console.log("Setting up wheel listener for ArenaScene");
-
     // Sensibilité et limites
     const sensitivity = 0.0005;
 
     // Variable pour suivre les rotations additionnelles après scroll = 1
     let extraRotations = 0;
-    const maxExtraRotations = 3;
+    const maxExtraRotations = 1;
 
     let effectsActive = false;
 
@@ -96,20 +105,33 @@ export class ArenaScene extends Scene implements Lifecycle {
       // Ne traiter l'événement que si la scène précédente a activé celle-ci
       if (!this.wheelEnabled) return;
 
-      // Mettre à jour le progrès du défilement
       if (this.scrollProgress >= 1) {
         // Une fois à 1, continuer à accumuler des rotations supplémentaires
         if (extraRotations < maxExtraRotations) {
           extraRotations += Math.abs(event.deltaY * sensitivity * 0.2); // Vitesse de rotation contrôlée
-          console.log("Rotations supplémentaires:", extraRotations);
+
+          // Vérifier si on a atteint le nombre de rotations requis
+          if (
+            extraRotations >= maxExtraRotations &&
+            !this.hasTriggeredFinalScene
+          ) {
+            this.hasTriggeredFinalScene = true;
+
+            // Déclenchement de l'événement pour la FinalScene
+            const event = new CustomEvent("arenaRotationComplete", {
+              detail: true,
+            });
+            document.dispatchEvent(event);
+
+            // Désactiver le wheel pour cette scène
+            this.wheelEnabled = false;
+          }
         }
       } else {
         this.scrollProgress += event.deltaY * sensitivity;
         // Limiter les valeurs entre 0 et 1
         this.scrollProgress = Math.max(0, Math.min(this.scrollProgress, 1));
       }
-
-      console.log("ArenaScene wheel progress:", this.scrollProgress);
 
       // Activer des effets spéciaux lorsque le scroll atteint son maximum
       if (this.scrollProgress >= 0.95 && !effectsActive) {
@@ -118,34 +140,23 @@ export class ArenaScene extends Scene implements Lifecycle {
           detail: true,
         });
         document.dispatchEvent(effectsEvent);
-        console.log(
-          "Activating arena max effects at scroll:",
-          this.scrollProgress
-        );
       } else if (this.scrollProgress < 0.9 && effectsActive) {
         effectsActive = false;
         const effectsEvent = new CustomEvent("arenaSceneFullyScrolled", {
           detail: false,
         });
         document.dispatchEvent(effectsEvent);
-        console.log(
-          "Deactivating arena effects at scroll:",
-          this.scrollProgress
-        );
       }
 
       // Utiliser le seuil de 0.7 comme dans les autres scènes
       if (this.scrollProgress > 0.7 && !this.isVisible) {
-        console.log("Showing ArenaScene at progress:", this.scrollProgress);
         this.showScene();
       } else if (this.scrollProgress <= 0.7 && this.isVisible) {
-        console.log("Hiding ArenaScene at progress:", this.scrollProgress);
         this.hideScene();
       }
 
       // Animation de l'arène basée sur le scroll
       if (this.model) {
-        this.model.position.z = -5;
         // Calculer la progression normalisée après avoir dépassé le seuil
         const modelProgress =
           this.scrollProgress > 0.7
@@ -153,12 +164,12 @@ export class ArenaScene extends Scene implements Lifecycle {
             : 0;
 
         // Animer l'arène qui monte depuis le bas
-        this.model.position.y = -10.5 + modelProgress * 10; // De -10 à 0
+        this.model.position.y = -10.7 + modelProgress * 10;
+        this.model.position.z = -10; // De -10 à 0
 
         // Rotation de l'arène - normale + rotations supplémentaires après scroll = 1
-        if (this.pivotGroup)
-          this.pivotGroup.rotation.y =
-            Math.PI * modelProgress * 0.5 + Math.PI * 2 * extraRotations;
+        this.model.rotation.y =
+          Math.PI * modelProgress * 0.5 + Math.PI * 2 * extraRotations;
 
         // Animation de la caméra pour donner l'impression d'être à l'intérieur
         if (modelProgress > 0.8) {
@@ -189,17 +200,22 @@ export class ArenaScene extends Scene implements Lifecycle {
     document.addEventListener("hoopSceneFullyScrolled", (event: Event) => {
       const customEvent = event as CustomEvent;
       if (customEvent.detail) {
-        console.log(
-          "Hoop scene fully scrolled, enabling ArenaScene wheel detection"
-        );
         this.wheelEnabled = true;
       }
     });
+
+    if (extraRotations >= maxExtraRotations) {
+      const event = new CustomEvent("arenaRotationComplete", { detail: true });
+      document.dispatchEvent(event);
+
+      // Désactiver le wheel pour cette scène
+      this.wheelEnabled = false;
+    }
   }
 
   private createTextElement(): void {
     this.textElement = document.createElement("h2");
-    this.textElement.textContent = "PLAY IN THE BIGGEST STADIUM";
+    this.textElement.textContent = "EXPERIENCE THE BIGGEST ARENA";
     this.textElement.style.position = "absolute";
     this.textElement.style.left = "50%";
     this.textElement.style.bottom = "15%";
@@ -218,8 +234,6 @@ export class ArenaScene extends Scene implements Lifecycle {
     this.isVisible = true;
     this.visible = true; // Rendre visible
 
-    console.log("Showing ArenaScene");
-
     // Animer l'apparition du texte
     gsap.to(this.textElement!, {
       opacity: 1,
@@ -236,23 +250,59 @@ export class ArenaScene extends Scene implements Lifecycle {
     this.isVisible = false;
     this.visible = false; // Rendre la scène invisible
 
-    // Animer la disparition du texte
-    gsap.to(this.textElement!, {
-      opacity: 0,
-      duration: 0.5,
-      ease: "power2.in",
+    // S'assurer que tous les objets sont également invisibles
+    this.traverse((object) => {
+      object.visible = false;
     });
+
+    // Arrêter toutes les animations GSAP en cours
+    if (this.model) {
+      gsap.killTweensOf(this.model.position);
+      gsap.killTweensOf(this.model.rotation);
+    }
+
+    // Animer la disparition du texte et masquer complètement l'élément
+    if (this.textElement) {
+      gsap.to(this.textElement, {
+        opacity: 0,
+        duration: 0.5,
+        ease: "power2.in",
+        onComplete: () => {
+          if (this.textElement) {
+            this.textElement.style.display = "none"; // Masquer complètement l'élément
+          }
+        },
+      });
+    }
 
     // Émettre un événement pour montrer à nouveau la scène précédente
     const event = new CustomEvent("thirdSceneVisible", { detail: false });
     document.dispatchEvent(event);
   }
 
+  public hideTitle(): void {
+    if (this.textElement) {
+      gsap.killTweensOf(this.textElement);
+      gsap.to(this.textElement, {
+        opacity: 0,
+        duration: 0.3,
+        ease: "power2.in",
+        onComplete: () => {
+          if (this.textElement) {
+            this.textElement.style.display = "none";
+          }
+        },
+      });
+    }
+  }
+
   public async load(): Promise<void> {
     const loader = new GLTFLoader();
 
     try {
-      const gltf = await loader.loadAsync("./assets/models/basketArena.glb");
+      const gltf = await loader.loadAsync(
+        "./assets/models/basketballCourt.glb"
+      );
       this.model = gltf.scene;
 
       // Ajuster l'échelle de l'arène
@@ -277,32 +327,32 @@ export class ArenaScene extends Scene implements Lifecycle {
         }
       });
 
-      if (this.pivotGroup) {
-        this.pivotGroup.add(this.model);
-
-        // Positionner le pivot à l'emplacement de la caméra
-        this.pivotGroup.position.copy(this.camera.position);
-
-        // Positionner l'arène relativement au pivot
-        // On applique un décalage pour que l'arène reste visible devant la caméra
-        this.model.position.set(0, -10, -15);
-      }
-      console.log("Arena model loaded successfully");
+      this.add(this.model);
     } catch (error) {
       console.error("Erreur lors du chargement du modèle d'arène:", error);
     }
   }
 
+  private onMouseClick(event: MouseEvent): void {
+    // Calculer la position normalisée de la souris
+    this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+    this.mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+    // Mettre à jour le raycaster
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+  }
+
   public update(): void {
+    // Mettre à jour la position de la lumière directionnelle
     this.light1.position.copy(this.camera.position);
 
+    // Animation de l'arène
     if (this.isVisible && this.model) {
-      if (this.pivotGroup)
-        this.pivotGroup.rotation.y += 0.0002 * this.clock.delta;
+      // Rotation de l'arène
+      this.model.rotation.y += 0.0002 * this.clock.delta;
 
       if (this.scrollProgress >= 0.95) {
-        if (this.pivotGroup)
-          this.pivotGroup.rotation.y += 0.0001 * this.clock.delta;
+        this.model.rotation.y += 0.0001 * this.clock.delta;
       }
     }
   }
@@ -314,6 +364,16 @@ export class ArenaScene extends Scene implements Lifecycle {
 
   public dispose(): void {
     if (this.model) {
+      window.removeEventListener("click", this.boundClickHandler);
+
+      // Nettoyer les ballons
+      for (const ball of this.basketballs) {
+        ball.geometry.dispose();
+        if ((ball as any).material.dispose) {
+          (ball as any).material.dispose();
+        }
+      }
+      this.basketballs = [];
       this.model.traverse((child) => {
         if (child instanceof Mesh) {
           child.geometry.dispose();

@@ -6,6 +6,7 @@ import { Controls } from "~/Controls";
 import { ExampleScene } from "~/scenes/ExampleScene";
 import { HoopScene } from "./scenes/HoopScene";
 import { ArenaScene } from "./scenes/ArenaScene";
+import { FinalScene } from "./scenes/FinalScene";
 
 export interface AppParameters {
   canvas?: HTMLCanvasElement | OffscreenCanvas;
@@ -25,6 +26,7 @@ export class App implements Lifecycle {
   public mainScene: Scene;
   public hoopScene: HoopScene;
   public arenaScene: ArenaScene;
+  public finalScene: FinalScene;
   public gui?: GUI;
 
   public constructor({ canvas, debug = false }: AppParameters = {}) {
@@ -67,11 +69,21 @@ export class App implements Lifecycle {
     });
     this.arenaScene.visible = false;
 
+    this.finalScene = new FinalScene({
+      viewport: this.viewport,
+      camera: this.camera,
+      clock: this.clock,
+    });
+    this.arenaScene.visible = false;
+
     this.hoopScene.visible = false;
+
+    this.finalScene.visible = false;
 
     this.mainScene.add(this.scene);
     this.mainScene.add(this.hoopScene);
     this.mainScene.add(this.arenaScene);
+    this.mainScene.add(this.finalScene);
 
     this.composer = new Composer({
       renderer: this.renderer,
@@ -101,6 +113,7 @@ export class App implements Lifecycle {
       this.scene.load(),
       this.hoopScene.load(),
       this.arenaScene.load(),
+      this.finalScene.load(),
     ]);
 
     if (this.debug) {
@@ -137,6 +150,8 @@ export class App implements Lifecycle {
     this.viewport.update();
     this.scene.update();
     this.hoopScene.update();
+    this.arenaScene.update();
+    this.finalScene.update();
     this.composer.update();
   }
 
@@ -167,6 +182,10 @@ export class App implements Lifecycle {
   public tick = (): void => {
     this.update();
     this.render();
+
+    if (this.finalScene.visible) {
+      this.arenaScene.visible = false;
+    }
   };
 
   /**
@@ -176,6 +195,8 @@ export class App implements Lifecycle {
     this.composer.resize();
     this.scene.resize();
     this.hoopScene.resize();
+    this.arenaScene.resize();
+    this.finalScene.resize();
   };
 
   /**
