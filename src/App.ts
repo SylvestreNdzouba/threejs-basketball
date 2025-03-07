@@ -1,9 +1,11 @@
-import { WebGLRenderer, PerspectiveCamera } from "three";
+import { WebGLRenderer, PerspectiveCamera, Scene } from "three";
 import { Clock, Loop, Viewport, type Lifecycle } from "~/core";
 import type { GUI } from "~/GUI";
 import { Composer } from "~/Composer";
 import { Controls } from "~/Controls";
 import { ExampleScene } from "~/scenes/ExampleScene";
+import { HoopScene } from "./scenes/HoopScene";
+import { ArenaScene } from "./scenes/ArenaScene";
 
 export interface AppParameters {
   canvas?: HTMLCanvasElement | OffscreenCanvas;
@@ -20,6 +22,9 @@ export class App implements Lifecycle {
   public clock: Clock;
   public viewport: Viewport;
   public scene: ExampleScene;
+  public mainScene: Scene;
+  public hoopScene: HoopScene;
+  public arenaScene: ArenaScene;
   public gui?: GUI;
 
   public constructor({ canvas, debug = false }: AppParameters = {}) {
@@ -41,17 +46,38 @@ export class App implements Lifecycle {
       resize: this.resize,
     });
 
+    this.mainScene = new Scene();
+
     this.scene = new ExampleScene({
       viewport: this.viewport,
       camera: this.camera,
       clock: this.clock,
     });
 
+    this.hoopScene = new HoopScene({
+      viewport: this.viewport,
+      camera: this.camera,
+      clock: this.clock,
+    });
+
+    this.arenaScene = new ArenaScene({
+      viewport: this.viewport,
+      camera: this.camera,
+      clock: this.clock,
+    });
+    this.arenaScene.visible = false;
+
+    this.hoopScene.visible = false;
+
+    this.mainScene.add(this.scene);
+    this.mainScene.add(this.hoopScene);
+    this.mainScene.add(this.arenaScene);
+
     this.composer = new Composer({
       renderer: this.renderer,
       viewport: this.viewport,
       clock: this.clock,
-      scene: this.scene,
+      scene: this.mainScene,
       camera: this.camera,
     });
 
@@ -70,7 +96,12 @@ export class App implements Lifecycle {
    * Load the app with its components and assets
    */
   public async load(): Promise<void> {
-    await Promise.all([this.composer.load(), this.scene.load()]);
+    await Promise.all([
+      this.composer.load(),
+      this.scene.load(),
+      this.hoopScene.load(),
+      this.arenaScene.load(),
+    ]);
 
     if (this.debug) {
       this.gui = new (await import("./GUI")).GUI(this);
@@ -105,6 +136,7 @@ export class App implements Lifecycle {
     this.controls.update();
     this.viewport.update();
     this.scene.update();
+    this.hoopScene.update();
     this.composer.update();
   }
 
@@ -125,6 +157,7 @@ export class App implements Lifecycle {
     this.scene.dispose();
     this.composer.dispose();
     this.renderer.dispose();
+    this.hoopScene.dispose();
     this.gui?.dispose();
   }
 
@@ -142,6 +175,7 @@ export class App implements Lifecycle {
   public resize = (): void => {
     this.composer.resize();
     this.scene.resize();
+    this.hoopScene.resize();
   };
 
   /**

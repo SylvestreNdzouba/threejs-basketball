@@ -61,19 +61,103 @@ export class ExampleScene extends Scene implements Lifecycle {
     eventBus.on("glassBreakComplete", () => {
       this.setupBallAnimation();
     });
+
+    document.addEventListener("secondSceneVisible", ((event: Event) => {
+      const customEvent = event as CustomEvent;
+      if (customEvent.detail === true) {
+        // La deuxième scène devient visible, cacher les éléments de cette scène
+        this.hideSceneElements();
+      } else {
+        // La deuxième scène se cache, montrer à nouveau les éléments de cette scène
+        this.showSceneElements();
+      }
+    }) as EventListener);
+  }
+
+  private hideSceneElements(): void {
+    // Animer le ballon vers la gauche et hors de l'écran
+    if (this.model) {
+      gsap.to(this.model.position, {
+        x: -10,
+        duration: 0.8,
+        ease: "power2.in",
+      });
+
+      gsap.to(this.model.scale, {
+        x: 0.5,
+        y: 0.5,
+        z: 0.5,
+        duration: 0.8,
+        ease: "power2.in",
+      });
+    }
+
+    // Cacher le texte
+    if (this.textElement) {
+      gsap.to(this.textElement, {
+        opacity: 0,
+        x: "-=100",
+        duration: 0.5,
+        ease: "power2.in",
+      });
+    }
+
+    // Arrêter l'animation de rebond si elle est active
+    this.isRebounding = false;
+
+    // Cacher l'effet de shader
+    if (this.floorShaderMaterial) {
+      gsap.to(this.floorShaderMaterial.uniforms.bounceIntensity, {
+        value: 0,
+        duration: 0.3,
+      });
+    }
+  }
+
+  private showSceneElements(): void {
+    // Ramener le ballon à sa position
+    if (this.model) {
+      gsap.to(this.model.position, {
+        x: -3,
+        duration: 0.8,
+        ease: "power2.out",
+      });
+
+      gsap.to(this.model.scale, {
+        x: 1.0,
+        y: 1.0,
+        z: 1.0,
+        duration: 0.8,
+        ease: "power2.out",
+      });
+    }
+
+    // Montrer le texte
+    if (this.textElement) {
+      gsap.to(this.textElement, {
+        opacity: 1,
+        x: "+=100",
+        duration: 0.8,
+        ease: "power2.out",
+      });
+    }
+
+    // Réactiver l'animation de rebond
+    this.isRebounding = true;
   }
 
   private createHeadingElement(): void {
     this.textElement = document.createElement("h2");
-    this.textElement.textContent = "LE BALLON LA BASE DE TOUT";
+    this.textElement.textContent = "TAKE THE BALL";
     this.textElement.style.position = "absolute";
-    this.textElement.style.left = "10%";
+    this.textElement.style.left = "20%";
     this.textElement.style.top = "40%";
     this.textElement.style.transform = "translateY(-50%)";
     this.textElement.style.color = "white";
     this.textElement.style.fontSize = "3rem";
     this.textElement.style.opacity = "0";
     this.textElement.style.zIndex = "100";
+    this.textElement.style.color = "#9e370d";
     document.body.appendChild(this.textElement);
   }
 
@@ -94,14 +178,14 @@ export class ExampleScene extends Scene implements Lifecycle {
       })
       .to(this.model.position, {
         z: -0.5,
-        x: -3, // Positionner à gauche plutôt qu'à droite
+        x: -3,
         duration: 1.5,
         ease: "bounce.out",
       })
       .to(
         this.model.scale,
         {
-          x: 1.0, // Réduire la taille du ballon
+          x: 1.0,
           y: 1.0,
           z: 1.0,
           duration: 0.8,
@@ -119,23 +203,31 @@ export class ExampleScene extends Scene implements Lifecycle {
         "-=0.5"
       )
       .call(() => {
-        // Commencer l'animation de rebond une fois en position
+        // Commencer l'animation de rebond
         this.startReboundAnimation();
-      });
 
-    // Configurer ScrollTrigger pour les interactions futures au scroll
-    this.setupScrollAnimation();
+        // Notifier que l'animation du ballon est terminée
+        const event = new CustomEvent("ballAnimationComplete");
+        document.dispatchEvent(event);
+        console.log("Ball animation complete event dispatched");
+      });
   }
 
   private setupScrollAnimation(): void {
     if (!this.model) return;
 
-    // Supprimer l'ancienne ScrollTrigger si elle existe
-    ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+    ScrollTrigger.getAll().forEach((trigger) => {
+      // Vérifier si ce trigger appartient à cette instance
+      // On peut utiliser une propriété data pour l'identifier
+      if (trigger.vars.id === "exampleSceneTrigger") {
+        trigger.kill();
+      }
+    });
 
     // Créer une nouvelle animation contrôlée par le scroll
     gsap.timeline({
       scrollTrigger: {
+        id: "exempleSceneTrigger",
         trigger: "#canvas-container",
         start: "top top",
         end: "bottom bottom",
@@ -277,24 +369,29 @@ export class ExampleScene extends Scene implements Lifecycle {
     // Fonction de rebond
     const height = Math.abs(Math.sin(t * Math.PI)) * maxHeight * amplitude;
 
+    // Position précédente pour détecter le changement de direction
+    const previousY = this.model.position.y;
+
     // Appliquer la hauteur
     this.model.position.y = this.reboundStartPosition.y + height;
 
-    // Détecter un rebond (quand le ballon touche le sol)
-    // Modifions cette condition pour capturer le moment exact du rebond
-    if (t > 0.48 && t < 0.52) {
+    // Détecter le moment EXACT du rebond - quand la hauteur est proche de zéro
+    // et que le ballon va vers le haut (changement de direction)
+    const currentHeight = height;
+    const isNearBottom = currentHeight < 0.05;
+    const isMovingUp = this.model.position.y > previousY;
+
+    if (isNearBottom && isMovingUp) {
       const currentTime = Date.now();
 
-      // Élargissons l'intervalle entre les rebonds pour s'assurer qu'il est détecté
-      if (currentTime - this.lastBounceTime > 100) {
-        console.log("Rebond détecté!"); // Ajout d'un log pour vérifier
+      // Éviter les rebonds multiples avec un court délai
+      if (currentTime - this.lastBounceTime > 50) {
         this.triggerFloorIllumination();
         this.lastBounceTime = currentTime;
       }
     }
   }
 
-  // Modifier le fragment shader pour un effet plus visible
   private createFloor(): void {
     // Créer un shader material pour le sol qui réagira aux rebonds
     const floorShaderMaterial = new ShaderMaterial({
@@ -334,31 +431,32 @@ export class ExampleScene extends Scene implements Lifecycle {
           float rings = max(ring1, max(ring2, ring3)) * 0.5;
           
           // Cercle central s'estompant avec la distance
-          float center = smoothstep(1.0, 0.0, dist) * 0.7;
+          float center = smoothstep(2.5, 0.0, dist) * 0.7; // Augmenté de 1.0 à 2.5
           
           // Luminosité finale
           float brightness = (center + rings) * bounceIntensity;
           
           // Couleur bleue (au lieu de blanche)
-          vec3 color = vec3(0.2, 0.6, 1.0) * brightness;
+          vec3 color = vec3(1.0, 1.0, 1.0) * brightness;
           
           // Alpha basé sur l'intensité et diminuant avec la distance - augmentation de la visibilité
-          float alpha = min(1.0, brightness * 2.0) * smoothstep(1.5, 0.0, dist);
+          float alpha = min(1.0, brightness * 2.0) * smoothstep(3.0, 0.0, dist); // Augmenté de 1.5 à 3.0
           
           gl_FragColor = vec4(color, alpha);
         }
       `,
       transparent: true,
-      depthWrite: false, // Ajout important pour la visibilité en mode transparent
+      depthWrite: false,
       depthTest: true,
     });
 
-    // Créer un plan plus petit pour l'effet d'impact
-    const floorGeometry = new PlaneGeometry(3, 3, 32, 32);
+    // Créer un plan plus grand pour l'effet d'impact
+    const floorGeometry = new PlaneGeometry(6, 6, 32, 32); // Augmenté de 3,3 à 6,6
     const floor = new Mesh(floorGeometry, floorShaderMaterial);
     floor.rotation.x = -Math.PI / 2;
-    floor.position.y = -1.05; // Légèrement plus haut pour être mieux visible
-    floor.renderOrder = 999; // Force le rendu après les autres objets
+    floor.position.y = -1.05;
+    floor.position.x = -1;
+    floor.renderOrder = 999;
 
     // Initialement invisible
     floorShaderMaterial.uniforms.bounceIntensity.value = 0.0;
@@ -367,14 +465,11 @@ export class ExampleScene extends Scene implements Lifecycle {
     this.floor = floor;
     this.floorShaderMaterial = floorShaderMaterial;
   }
-
   private triggerFloorIllumination(): void {
     if (!this.floorShaderMaterial || !this.model || !this.floor) return;
 
-    console.log("Illumination du sol!"); // Ajout d'un log pour vérifier
-
     // S'assurer que le plan est positionné sous le ballon
-    this.floor.position.x = this.model.position.x;
+    //this.floor.position.x = this.model.position.x;
     this.floor.position.z = this.model.position.z;
 
     // Mettre à jour l'intensité du rebond dans le shader avec une valeur plus élevée
@@ -416,8 +511,6 @@ export class ExampleScene extends Scene implements Lifecycle {
   // Assurons-nous que la fonction startReboundAnimation initialise correctement les variables
   private startReboundAnimation(): void {
     if (!this.model) return;
-
-    console.log("Début de l'animation de rebond");
 
     // Enregistrer la position de repos
     this.reboundStartPosition.copy(this.model.position);
