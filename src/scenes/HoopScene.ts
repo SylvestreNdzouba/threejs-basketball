@@ -204,7 +204,7 @@ export class HoopScene extends Scene implements Lifecycle {
     const loader = new GLTFLoader();
 
     try {
-      const gltf = await loader.loadAsync("./assets/models/basketBallHoop.glb");
+      const gltf = await loader.loadAsync("./public/basketBallHoop.glb");
       this.model = gltf.scene;
 
       this.model.scale.set(6.5, 6.5, 6.5);
