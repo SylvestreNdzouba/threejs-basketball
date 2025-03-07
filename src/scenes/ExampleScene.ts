@@ -216,7 +216,7 @@ export class ExampleScene extends Scene implements Lifecycle {
     const loader = new GLTFLoader();
 
     try {
-      const gltf = await loader.loadAsync("./public/basketball.glb");
+      const gltf = await loader.loadAsync("/basketball.glb");
       this.model = gltf.scene;
       this.model.scale.set(3.5, 3.5, 3.5);
       this.model.position.set(0, 0, 0);

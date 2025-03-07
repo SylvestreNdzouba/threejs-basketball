@@ -369,7 +369,7 @@ export class FinalScene extends Scene implements Lifecycle {
     const loader = new GLTFLoader();
 
     try {
-      const gltf = await loader.loadAsync("./public/basketball.glb");
+      const gltf = await loader.loadAsync("/basketball.glb");
       this.basketball = gltf.scene;
 
       // Ajuster l'échelle du ballon

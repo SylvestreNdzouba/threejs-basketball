@@ -300,7 +300,7 @@ export class ArenaScene extends Scene implements Lifecycle {
     const loader = new GLTFLoader();
 
     try {
-      const gltf = await loader.loadAsync("./public/basketballCourt.glb");
+      const gltf = await loader.loadAsync("/basketballCourt.glb");
       this.model = gltf.scene;
 
       // Ajuster l'échelle de l'arène
